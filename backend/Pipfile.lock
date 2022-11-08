@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "52e38283d353d8f729a2a5c65644701e528ba8be9278f5fb359201fe4cbe1159"
+            "sha256": "9db4e83b46ab782b1ebc38b3b4d49f512cbf344fb10628d23c4bf994c5245c3a"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -55,6 +55,10 @@
             ],
             "markers": "python_version ~= '3.7'",
             "version": "==5.2.0"
+        },
+        "cb-camera": {
+            "editable": true,
+            "path": "./modules/camera"
         },
         "cb-django-social-auth": {
             "editable": true,
