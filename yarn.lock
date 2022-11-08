@@ -1035,6 +1035,9 @@
 "@modules/privacy-policy-webview@file:./modules/privacy-policy-webview":
   version "1.0.0"
 
+"@modules/privacy-policy-webview@file:./modules/privacy-policy-webview/":
+  version "1.0.0"
+
 "@modules/social-login@file:./modules/social-login":
   version "1.0.0"
   dependencies:
@@ -1047,7 +1050,7 @@
     react-native-keyboard-aware-scroll-view "^0.9.3"
     uuid "^8.3.2"
 
-"@modules/splash@file:./modules/splash/":
+"@modules/splash@file:./modules/splash":
   version "1.0.0"
 
 "@modules/terms-and-conditions-webview@file:./modules/terms-and-conditions-webview":
