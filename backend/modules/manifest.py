@@ -2,7 +2,7 @@ from pathlib import Path
 from django.urls import path, include
 
 MODULES_PACKAGE_NAME = "modules"
-MODULES_DIR = f"{Path.cwd()}/{MODULES_PACKAGE_NAME}/"
+MODULES_DIR = f"{MODULES_PACKAGE_NAME}/"
 APPS = Path(MODULES_DIR).rglob("apps.py")
 
 
