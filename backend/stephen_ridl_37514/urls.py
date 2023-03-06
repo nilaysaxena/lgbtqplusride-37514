@@ -13,7 +13,9 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-
+import rest_framework
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include, re_path
 from django.views.generic.base import TemplateView
@@ -50,13 +52,19 @@ schema_view = get_schema_view(
     api_info,
     public=True,
     permission_classes=(permissions.IsAuthenticated,),
+    authentication_classes=[rest_framework.authentication.SessionAuthentication]
 )
 
 urlpatterns += [
     path("api-docs/", schema_view.with_ui("swagger", cache_timeout=0), name="api_docs")
 ]
 
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 urlpatterns += [path("", TemplateView.as_view(template_name='index.html'))]
 urlpatterns += [re_path(r"^(?:.*)/?$",
-                TemplateView.as_view(template_name='index.html'))]
+                        TemplateView.as_view(template_name='index.html'))]
+
+handler500 = 'general.exception.validation.custom_server_error'
+handler400 = 'general.exception.validation.custom_bad_request'
