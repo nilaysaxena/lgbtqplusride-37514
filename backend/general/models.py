@@ -1,4 +1,5 @@
 from django.db import models
+from django_countries.fields import CountryField
 
 
 class BaseModel(models.Model):
@@ -15,6 +16,7 @@ class BaseAddressModel(models.Model):
     state = models.CharField(max_length=30)
     zipcode = models.CharField(max_length=6)
     apartment = models.CharField(max_length=30, blank=True)
+    country = CountryField()
 
     class Meta:
         abstract = True

@@ -9,14 +9,47 @@ from allauth.account.utils import setup_user_email
 from rest_framework import serializers
 from rest_auth.serializers import PasswordResetSerializer
 
+from general.enum_helper import UserType
+from modules.django_two_factor_authentication.two_factor_authentication.models import TwoFactorAuth
+from users.models import UserProfile
 
 User = get_user_model()
 
 
-class SignupSerializer(serializers.ModelSerializer):
+class NormalSignupSerializer(serializers.ModelSerializer):
+    user_type = serializers.ChoiceField(choices=UserType.choices(), required=True, allow_blank=False)
+
     class Meta:
         model = User
-        fields = ('id', 'name', 'email', 'password')
+        fields = ('id', 'email', 'password', 'user_type')
+        extra_kwargs = {
+            'password': {
+                'write_only': True,
+                'style': {
+                    'input_type': 'password'
+                }
+            },
+            'email': {
+                'required': True,
+                'allow_blank': False,
+            }
+        }
+
+    def validate_email(self, email):
+        email = get_adapter().clean_email(email)
+        if allauth_settings.UNIQUE_EMAIL:
+            if email and email_address_exists(email):
+                raise serializers.ValidationError(
+                    _("A user is already registered with this e-mail address."))
+        return email
+
+
+class SignupSerializer(serializers.ModelSerializer):
+    user_type = serializers.ChoiceField(choices=UserType.choices(), required=True, allow_blank=False)
+
+    class Meta:
+        model = User
+        fields = ('id', 'email', 'password', 'user_type')
         extra_kwargs = {
             'password': {
                 'write_only': True,
@@ -47,7 +80,8 @@ class SignupSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = User(
             email=validated_data.get('email'),
-            name=validated_data.get('name'),
+            name=validated_data.get('name', ''),
+            user_type=validated_data.get('user_type'),
             username=generate_unique_username([
                 validated_data.get('name'),
                 validated_data.get('email'),
@@ -57,7 +91,7 @@ class SignupSerializer(serializers.ModelSerializer):
         user.set_password(validated_data.get('password'))
         user.save()
         request = self._get_request()
-        setup_user_email(request, user, [])
+        # setup_user_email(request, user, [])
         return user
 
     def save(self, request=None):
@@ -65,10 +99,32 @@ class SignupSerializer(serializers.ModelSerializer):
         return super().save()
 
 
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = '__all__'
+        read_only_fields = ['user', 'name']
+
+    def validate(self, attrs):
+        request = self.context.get('request')
+        if not self.instance and request and hasattr(request.user, 'user_profile'):
+            raise serializers.ValidationError('User Profile already exists')
+        return attrs
+
+
+class BasicUserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = ['id', 'name', 'phone']
+
+
 class UserSerializer(serializers.ModelSerializer):
+    user_profile = BasicUserProfileSerializer()
+
     class Meta:
         model = User
-        fields = ['id', 'email', 'name']
+        fields = ['id', 'email', 'user_type', 'is_mission_statement_accepted', 'is_payment_terms_accepted',
+                  'user_profile']
 
 
 class PasswordSerializer(PasswordResetSerializer):

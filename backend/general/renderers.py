@@ -48,12 +48,13 @@ class CustomJSONRenderer(JSONRenderer):
         else:
             response_message = ''
 
+        if not response_message:
+            response_message = get_error_data(response_data, renderer_context['response'].status_text)
+
         if status.is_client_error(status_code) or status.is_server_error(status_code):
             response_status = 'failure'
             errors = response_data
             response_data = []
-            if not response_message:
-                response_message = get_error_data(errors, renderer_context['response'].status_text)
 
         custom_data = {"status": response_status, "status_code": status_code,
                        "message": response_message,

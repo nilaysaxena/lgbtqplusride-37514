@@ -89,6 +89,7 @@ THIRD_PARTY_APPS = [
     'drf_yasg',
     'storages',
     'fcm_django',
+    'django_countries'
 ]
 MODULES_APPS = get_modules()
 
@@ -212,7 +213,7 @@ REST_AUTH_REGISTER_SERIALIZERS = {
 AUTH_USER_MODEL = "users.User"
 
 EMAIL_HOST = env.str("EMAIL_HOST", "smtp.sendgrid.net")
-EMAIL_HOST_USER = env.str("SENDGRID_USERNAME", "")
+EMAIL_HOST_USER = env.str("SENDGRID_USERNAME", "apikey")
 EMAIL_HOST_PASSWORD = env.str("SENDGRID_PASSWORD", "")
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
@@ -288,7 +289,7 @@ REST_FRAMEWORK = {
         # 'general.authentication.CsrfExemptSessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated'
+        'general.permissions.IsCustomAuthenticated'
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
     "PAGE_SIZE": 20,
@@ -319,3 +320,5 @@ CELERY_ACCEPT_CONTENT = ["application/json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_RESULT_EXTENDED = True
+
+SENDGRID_API_KEY = EMAIL_HOST_PASSWORD

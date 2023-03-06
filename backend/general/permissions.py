@@ -1,21 +1,16 @@
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import BasePermission
 
 
-class IsDealer(BasePermission):
+class IsCustomAuthenticated(BasePermission):
     def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated and request.user.is_dealer)
+        authenticate = False
+        if request.user and request.user.is_authenticated:
+            if request.user.is_rider or request.user.is_driver:
+                if not request.user.is_mission_statement_accepted:
+                    raise PermissionDenied('Mission Statement not Accepted')
 
-
-class IsCustomer(BasePermission):
-    def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated and request.user.is_customer)
-
-
-class IsSuperAdmin(BasePermission):
-    def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated and request.user.is_super_admin)
-
-
-class IsNormalAdmin(BasePermission):
-    def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated and request.user.is_normal_admin)
+                if not request.user.is_payment_terms_accepted:
+                    raise PermissionDenied('Payment Terms not Accepted')
+                authenticate = True
+        return authenticate

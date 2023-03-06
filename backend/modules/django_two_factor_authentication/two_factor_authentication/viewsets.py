@@ -1,11 +1,15 @@
 import pyotp
 from rest_framework import status
 from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
-
+from rest_framework.authtoken.models import Token
 from django.conf import settings
+
+from general.enum_helper import VerifyOTPType
+from home.api.v1.serializers import SignupSerializer, UserSerializer
 from .models import TwoFactorAuth, Verify
 from .serializers import PhoneNumberSerializer, VerifySerializer
 import os
@@ -26,6 +30,7 @@ def generate_opt():
 class PhoneNumberViewset(ModelViewSet):
     queryset = TwoFactorAuth.objects.all()
     serializer_class = PhoneNumberSerializer
+    permission_classes = [AllowAny]
 
     @action(methods=['post'], detail=False)
     def send_otp(self, request):
@@ -54,22 +59,25 @@ class PhoneNumberViewset(ModelViewSet):
                         t.save()
                     else:
                         Verify.objects.create(phone_number=registered_phone_num, code=otp_code)
-                    return Response({'message': "Verification code has been sent to your phone number", 'status': status.HTTP_200_OK}, status=status.HTTP_200_OK)
+                    return Response({'message': "Verification code has been sent to your phone number",
+                                     'status': status.HTTP_200_OK}, status=status.HTTP_200_OK)
 
             except:
-                return Response({'message': "Your phone number is not registered", 'status': status.HTTP_404_NOT_FOUND}, status=status.HTTP_404_NOT_FOUND)
+                return Response({'message': "Your phone number is not registered", 'status': status.HTTP_404_NOT_FOUND},
+                                status=status.HTTP_404_NOT_FOUND)
 
         elif email and email != '':
             try:
                 registered_email = TwoFactorAuth.objects.get(email=email)
                 if registered_email:
                     message = Mail(
-                        from_email=settings.EMAIL,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
                         to_emails=email,
-                        subject='Crowdbotics 2FA code',
-                        html_content='<strong>"Your OTP code is {}. Do not share with anyone"</strong>'.format(otp_code))
-                    if Verify.objects.filter(email=registered_email).exists():
-                        t = Verify.objects.get(email=registered_email)
+                        subject='Pride Ride OTP code',
+                        html_content='<strong>"Your OTP code is {}. Do not share with anyone"</strong>'.format(
+                            otp_code))
+                    if Verify.objects.filter(email=registered_email.email).exists():
+                        t = Verify.objects.get(email=registered_email.email)
                         t.code = otp_code
                         t.save()
                     else:
@@ -79,17 +87,24 @@ class PhoneNumberViewset(ModelViewSet):
                         response = sg.send(message)
                     except Exception as e:
                         print(e)
-                    return Response({'message': "Verification code has been sent to your Email Address", 'status': status.HTTP_200_OK}, status=status.HTTP_200_OK)
+                    return Response({'message': "Verification code has been sent to your Email Address",
+                                     'status': status.HTTP_200_OK}, status=status.HTTP_200_OK)
             except:
-                return Response({'message': "Your Email is not registered", 'status': status.HTTP_404_NOT_FOUND}, status=status.HTTP_404_NOT_FOUND)
+                return Response({'message': "Your Email is not registered", 'status': status.HTTP_404_NOT_FOUND},
+                                status=status.HTTP_404_NOT_FOUND)
+
+        else:
+            return Response({'message': "Phone or email field is mandatory", 'status': status.HTTP_404_NOT_FOUND},
+                            status=status.HTTP_404_NOT_FOUND)
 
 
 class VerifyViewSet(ModelViewSet):
     queryset = Verify.objects.all()
     serializer_class = VerifySerializer
-    http_method_names = ['delete']
+    http_method_names = ['post']
+    permission_classes = [AllowAny]
 
-    def destroy(self, request, *args, **kwargs):
+    def create(self, request, *args, **kwargs):
         """
         destroy verifies the otp and phone number or email match the opt code sent to the phone number or email. Deletes record after verifying.
         :param request: Contains an object named 'data' which has otp, email and phone number on which otp code was sent.
@@ -97,6 +112,7 @@ class VerifyViewSet(ModelViewSet):
         phone_num = request.data.get('phone_number')
         email = request.data.get('email')
         code = request.data.get('code')
+        verify_type = request.data.get('verify_type')
         if phone_num:
             try:
                 result = Verify.objects.get(phone_number__phone_number=phone_num, code=code)
@@ -104,20 +120,34 @@ class VerifyViewSet(ModelViewSet):
                     result.delete()
                     return Response({'message': 'Verified', 'status': status.HTTP_200_OK}, status=status.HTTP_200_OK)
                 else:
-                    return Response({'message': 'Invalid verification code', 'status': status.HTTP_404_NOT_FOUND}, status=status.HTTP_404_NOT_FOUND)
+                    return Response({'message': 'Invalid verification code', 'status': status.HTTP_404_NOT_FOUND},
+                                    status=status.HTTP_404_NOT_FOUND)
             except:
-                return Response({'message': 'Something went wrong.', 'status': status.HTTP_404_NOT_FOUND}, status=status.HTTP_404_NOT_FOUND)
+                return Response({'message': 'Something went wrong.', 'status': status.HTTP_404_NOT_FOUND},
+                                status=status.HTTP_404_NOT_FOUND)
 
         elif email:
-            try:
-                result = Verify.objects.get(email=email, code=code)
-                if result:
-                    result.delete()
-                    return Response({'message': 'Verified', 'status': status.HTTP_200_OK}, status=status.HTTP_200_OK)
-                else:
-                    return Response({'message': 'Invalid verification code', 'status': status.HTTP_404_NOT_FOUND}, status=status.HTTP_404_NOT_FOUND)
-            except:
-                return Response({'message': 'Something went wrong.', 'status': status.HTTP_404_NOT_FOUND}, status=status.HTTP_404_NOT_FOUND)
+            result = Verify.objects.filter(email=email, code=code).first()
+            if result:
+                response = {'message': 'Verified', 'status': status.HTTP_200_OK}
+                if verify_type == VerifyOTPType.SIGNUP.value:
+                    serializer = SignupSerializer(
+                        data=request.data, context={"request": request}
+                    )
+                    serializer.is_valid(raise_exception=True)
+                    user = serializer.save()
+                    token, created = Token.objects.get_or_create(user=user)
+                    user_serializer = UserSerializer(user)
+                    response = {"token": token.key, "user": user_serializer.data}
+
+                result.delete()
+                return Response(response, status=status.HTTP_200_OK)
+            else:
+                return Response({'message': 'Invalid verification code', 'status': status.HTTP_404_NOT_FOUND},
+                                status=status.HTTP_404_NOT_FOUND)
+        else:
+            return Response({'message': "Phone or email field is mandatory", 'status': status.HTTP_404_NOT_FOUND},
+                            status=status.HTTP_404_NOT_FOUND)
 
 
 class Google_AUTH(APIView):
@@ -136,7 +166,8 @@ class Google_AUTH(APIView):
                     'status': status.HTTP_200_OK
                 }, status=status.HTTP_200_OK)
             except:
-                return Response({'message': 'Enter a Valid user id.', 'status': status.HTTP_404_NOT_FOUND}, status=status.HTTP_404_NOT_FOUND)
+                return Response({'message': 'Enter a Valid user id.', 'status': status.HTTP_404_NOT_FOUND},
+                                status=status.HTTP_404_NOT_FOUND)
 
         else:
             return Response({'message': 'User Does not exist.', 'status': status.HTTP_404_NOT_FOUND},
